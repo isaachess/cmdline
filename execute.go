@@ -6,7 +6,11 @@ import (
 	"os"
 )
 
-var UsageErr error = errors.New("Incorrect usage")
+var (
+	UsageErr  error = errors.New("Incorrect usage")
+	runnerErr error = errors.New("Cannot run command without a runner")
+	defineErr error = errors.New("Cannot define command with both args and subcommands")
+)
 
 func Execute(c *Cmd) error {
 	return executeWithPrint(c, os.Args[1:], true)
@@ -23,12 +27,15 @@ func executeWithPrint(c *Cmd, args []string, shouldPrint bool) error {
 
 func execute(c *Cmd, args []string) error {
 	if len(c.subs) > 0 && len(c.args) > 0 {
-		return errors.New("Command definition error: Cannot define command with both args and subcommands")
+		return defineErr
 	}
 	if len(c.subs) > 0 {
 		return UsageErr
 	}
 	if c.runner == nil {
+		return runnerErr
+	}
+	if len(args) < len(c.args) {
 		return UsageErr
 	}
 	if c.flags != nil {
@@ -36,9 +43,6 @@ func execute(c *Cmd, args []string) error {
 			return err
 		}
 		args = c.flags.Args()
-	}
-	if len(args) < len(c.args) {
-		return UsageErr
 	}
 	return c.runner.Run(args)
 }
