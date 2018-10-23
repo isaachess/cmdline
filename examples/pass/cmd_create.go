@@ -1,31 +1,33 @@
 package main
 
 import (
-	"cmdline"
+	"cmdline/args"
 	"flag"
 	"fmt"
 )
 
 const cmdCreateName = "create"
 
-var cmdCreateArgs = []*cmdline.Arg{
-	cmdline.NewArg("sitename", "(string) the name of the site"),
-	cmdline.NewArg("password", "(string) the password for the site"),
-}
+var (
+	cmdCreateArgs = args.NewArgSet()
+	createSite    = cmdCreateArgs.String("sitename",
+		"(string) the name of the site")
+	password = cmdCreateArgs.String("password",
+		"(string) the password for the site")
+)
 
 var cmdCreateFlags = flag.NewFlagSet(cmdCreateName, flag.ExitOnError)
-var encrypt = cmdCreateFlags.Bool("encrypt", false, "whether to encrypt at rest")
+var encrypt = cmdCreateFlags.Bool("encrypt", false,
+	"whether to encrypt at rest")
 
 type cmdCreateRunner struct {
 	pws []*pw
 }
 
-func (c *cmdCreateRunner) Run(args []string) error {
-	site := args[0]
-	password := args[1]
+func (c *cmdCreateRunner) Run() error {
 	if *encrypt {
 		fmt.Println("encrypt not supported, but thanks for requesting it")
 	}
-	c.pws = append(c.pws, &pw{site, password})
+	c.pws = append(c.pws, &pw{*createSite, *password})
 	return nil
 }

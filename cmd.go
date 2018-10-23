@@ -1,13 +1,14 @@
 package cmdline
 
 import (
+	"cmdline/args"
 	"flag"
 	"fmt"
 	"strings"
 )
 
 type Runner interface {
-	Run(args []string) error
+	Run() error
 }
 
 type Cmd struct {
@@ -15,10 +16,10 @@ type Cmd struct {
 	subs   []*Cmd
 	runner Runner
 	flags  *flag.FlagSet
-	args   []*Arg
+	args   *args.ArgSet
 }
 
-func NewCmd(name string, runner Runner, args []*Arg, flags *flag.FlagSet) *Cmd {
+func NewCmd(name string, runner Runner, args *args.ArgSet, flags *flag.FlagSet) *Cmd {
 	return &Cmd{
 		name:   name,
 		runner: runner,
@@ -57,15 +58,14 @@ func (c *Cmd) subUsage() string {
 }
 
 func (c *Cmd) argUsage() string {
-	if len(c.args) < 1 {
+	if c.args.Len() < 1 {
 		return ""
 	}
-	var argNames []string
-	var argDescriptions []string
-	for _, arg := range c.args {
-		argNames = append(argNames, fmt.Sprintf("[%s]", arg.name))
-		argDescriptions = append(argDescriptions, fmt.Sprintf("%s: %s",
-			arg.name, arg.desc))
+	var argNames = c.args.Names()
+	var argDescriptions = c.args.Desc()
+	for i, argName := range argNames {
+		argNames[i] = fmt.Sprintf("[%s]", argName)
+		argDescriptions[i] = fmt.Sprintf("%s: %s", argName, argDescriptions[i])
 	}
 	return fmt.Sprintf(" %s\n\nArgs:\n%s",
 		strings.Join(argNames, " "), strings.Join(argDescriptions, "\n"))
@@ -80,16 +80,4 @@ func (c *Cmd) flagUsage() string {
 		flags = append(flags, fmt.Sprintf("%s: %s", f.Name, f.Usage))
 	})
 	return fmt.Sprintf("\n\nFlags:\n%s", strings.Join(flags, "\n"))
-}
-
-type Arg struct {
-	name string
-	desc string
-}
-
-func NewArg(name, desc string) *Arg {
-	return &Arg{
-		name: name,
-		desc: desc,
-	}
 }

@@ -1,9 +1,9 @@
 # CmdLine
 
-CmdLine is a simple Go library to assist in creating command-line (CLI) tools in Go.
-It allows you to declaritively specify your commands, flags, required arguments,
-etc. It supports sub-commands, sub-command-specific flags and args, usage
-messages, and more.
+CmdLine is a simple Go library to assist in creating command-line (CLI) tools in
+Go.  It allows you to declaritively specify your commands, flags, required
+arguments, etc. It supports sub-commands, sub-command-specific flags and args,
+usage messages, and more.
 
 # Example
 
@@ -20,15 +20,12 @@ package main
 
 import (
 	"cmdline"
+	"cmdline/args"
 	"flag"
 	"fmt"
-	"strings"
 )
 
 const cmdName = "phone"
-
-var commonNumberArg = cmdline.NewArg("number",
-	"(123-456-7890) the phone number to call")
 
 //// Call subcommand definitions ////
 const cmdCallName = "call"
@@ -39,22 +36,23 @@ var (
 		"(bool) whether the speaker phone should be used")
 )
 
-var cmdCallArgs = []*cmdline.Arg{commonNumberArg}
+var (
+	cmdCallArgs = args.NewArgSet()
+	callNumber  = cmdCallArgs.String("number",
+		"(123-456-7890) the phone number to call")
+)
 
 type cmdCallRunner struct {
 	calledHistory []string
 }
 
-func (c *cmdCallRunner) Run(args []string) error {
-	// No need to check length of args here: the arg definition provided
-	// guarantees it will at least have a length 1
+func (c *cmdCallRunner) Run() error {
 	var speakerMsg string
 	if *speaker {
 		speakerMsg = " with speaker phone"
 	}
-	number := args[0]
-	fmt.Printf("Dialing %s%s...\n", number, speakerMsg)
-	c.calledHistory = append(c.calledHistory, number)
+	fmt.Printf("Dialing %s%s...\n", *callNumber, speakerMsg)
+	c.calledHistory = append(c.calledHistory, *callNumber)
 	return nil
 }
 
@@ -67,19 +65,18 @@ var (
 		"(string) signature to use at the end of the message")
 )
 
-var cmdTextArgs = []*cmdline.Arg{
-	commonNumberArg,
-	cmdline.NewArg("message", "(string) the message to send"),
-}
+var (
+	cmdTextArgs = args.NewArgSet()
+	textNumber  = cmdTextArgs.String("number",
+		"(123-456-7890) the phone number to call")
+	message = cmdTextArgs.String("message", "(string) the message to send")
+)
 
 type cmdTextRunner struct{}
 
-func (c *cmdTextRunner) Run(args []string) error {
-	// No need to check length of args here: the arg definition provided
-	// guarantees it will at least have a length 2
-	number := args[0]
-	message := strings.Join(args[1:], " ") // Just in case they forgot to put second arg in quotes...
-	fmt.Printf("Texted %s this message: %s%s\n", number, message, *signature)
+func (c *cmdTextRunner) Run() error {
+	fmt.Printf("Texted %s this message: %s%s\n", *textNumber, *message,
+		*signature)
 	return nil
 }
 
@@ -154,11 +151,40 @@ folder.
 
 The `Cmd` type represents a command, and is initialized with:
 
-`cmdline.NewCmd(name string, runner Runner, args []*Arg, flags *flag.FlagSet)`
+`cmdline.NewCmd(name string, runner Runner, args *args.ArgSet, flags *flag.FlagSet)`
 
 The `name` of the command is how you will invoke the command. For the main
 parent command this isn't used, but for all subcommands the `name` element is
 used to identify which command to execute.
+
+## Args
+
+`cmdline` provides a parsable arg structure modeled on Go's built-in flags. You
+can create an `ArgSet`, register args, and parse args. When args are parsed it
+will populate the value pointers given when you register the args.
+
+Args are initialized with:
+
+`args.NewArgSet()`
+
+You can then create args similar to flags:
+
+```go
+cmdCallArgs = args.NewArgSet()
+callNumber  = cmdCallArgs.String("number",
+    "(123-456-7890) the phone number to call")
+```
+
+In this example, `callNumber` is a `*string`, which will be populated when args
+are parsed. Arg parsing happens automatically for you when you execute your cmd.
+
+The _order_ you define args is significant. It will represent the expected order
+of args when the cmd is run, and when printing usage.
+
+If args cannot be parsed, or if the incorrect number of args is provided, a
+usage message will be printed.
+
+If you have no args for a command, you may pass `nil` to the cmd constructor.
 
 ## cmdline.Runner interface
 
@@ -166,37 +192,14 @@ The cmdline.Runner interface is:
 
 ```go
 type Runner interface {
-	Run(args []string) error
+	Run() error
 }
 ```
 
-The `Run` function will be called when the command is invoked. It is passed the
-args specific to this command, meaning it strips off the command name and any
-parsed flags.
-
-For example, suppose you have a command `phone` with two subcommands: `text` or
-`call`. And suppose call requires you to supply, as arguments, the phone number
-to call. Suppose it also allows a bool flag to specify whether speaker phone
-should be on. This command would look like:
-
-`phone call -speaker 555-326-1234`
-
-In this case, the `call` command's `Run` function is called. The only argument
-passed is `555-326-1234` as it is the only arg for this subcommand.
+The `Run` function will be called when the command is invoked.
 
 Any error returned by the `Run` function is printed at the top of a usage
 statement to the user.
-
-## cmdline.Arg
-
-Args are initialized with:
-
-`cmdline.NewArg(name, desc string) *Arg`
-
-A list of args is registered with the command on creation. The arg order
-matters: it is used to build a convenient usage message. All args are required
-by the user, so `cmdline` will ensure the correct number are passed. If not, a
-usage statement is printed.
 
 ## Flags
 

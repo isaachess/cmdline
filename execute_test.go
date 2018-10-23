@@ -1,8 +1,8 @@
 package cmdline
 
 import (
+	"cmdline/args"
 	"flag"
-	"reflect"
 	"testing"
 )
 
@@ -17,21 +17,19 @@ const (
 )
 
 type testRunner struct {
-	args []string
-	run  bool
-	err  error
+	run bool
+	err error
 }
 
-func (c *testRunner) Run(args []string) error {
+func (c *testRunner) Run() error {
 	c.run = true
-	c.args = args
 	return c.err
 }
 
 func TestSubcommandIsRun(t *testing.T) {
 	test := newTest(t)
 	test.Execute([]string{cmd11Name, cmd111Name, "bobby", "jones"})
-	test.AssertRunWithArgs(cmd111Name, []string{"bobby", "jones"})
+	test.AssertRun(cmd111Name)
 }
 
 func TestParentCommandWontRunWithoutSubSpecified(t *testing.T) {
@@ -80,11 +78,12 @@ func newTest(t *testing.T) *test {
 	)
 
 	var (
-		cmd111Args = []*Arg{
-			NewArg("bobby", "a name bobby"),
-			NewArg("jones", "a name jones"),
-		}
-		cmd14Args = []*Arg{NewArg("badarg", "this shouldn't happen")}
+		cmd111Args = args.NewArgSet()
+		_          = cmd111Args.String("bobby", "a name bobby")
+		_          = cmd111Args.String("jones", "a name jones")
+
+		cmd14Args = args.NewArgSet()
+		_         = cmd14Args.String("badarg", "this shouldn't happen")
 	)
 
 	cmd111 := NewCmd(cmd111Name, &testRunner{}, cmd111Args, cmd111Flags)
@@ -136,10 +135,10 @@ func (t *test) AssertExecuteError(err error) {
 	}
 }
 
-func (t *test) AssertRunWithArgs(cmdName string, args []string) {
+func (t *test) AssertRun(cmdName string) {
 	for name, cmd := range t.cmds {
 		if name == cmdName {
-			t.assertRun(name, cmd, args)
+			t.assertRun(name, cmd)
 		} else {
 			t.assertNotRun(name, cmd)
 		}
@@ -152,17 +151,19 @@ func (t *test) AssertNoRuns() {
 	}
 }
 
-func (t *test) assertRun(cmdName string, cmd *Cmd, args []string) {
+func (t *test) assertRun(cmdName string, cmd *Cmd) {
 	tRunner := cmd.runner.(*testRunner)
 	if !tRunner.run {
 		t.t.Errorf("%s was not run but should have", cmdName)
 	}
-	if !reflect.DeepEqual(tRunner.args, args) {
-		t.t.Errorf("Should have had args %s, got %s", args, tRunner.args)
-	}
 	if cmd.flags != nil {
 		if !cmd.flags.Parsed() {
 			t.t.Errorf("%s: flags not parsed", cmdName)
+		}
+	}
+	if cmd.args != nil {
+		if !cmd.args.Parsed() {
+			t.t.Errorf("%s: args not parsed", cmdName)
 		}
 	}
 }

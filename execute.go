@@ -26,7 +26,7 @@ func executeWithPrint(c *Cmd, args []string, shouldPrint bool) error {
 }
 
 func execute(c *Cmd, args []string) error {
-	if len(c.subs) > 0 && len(c.args) > 0 {
+	if len(c.subs) > 0 && c.args.Len() > 0 {
 		return defineErr
 	}
 	if len(c.subs) > 0 {
@@ -35,7 +35,7 @@ func execute(c *Cmd, args []string) error {
 	if c.runner == nil {
 		return runnerErr
 	}
-	if len(args) < len(c.args) {
+	if len(args) < c.args.Len() {
 		return UsageErr
 	}
 	if c.flags != nil {
@@ -44,7 +44,12 @@ func execute(c *Cmd, args []string) error {
 		}
 		args = c.flags.Args()
 	}
-	return c.runner.Run(args)
+	if c.args != nil {
+		if err := c.args.Parse(args); err != nil {
+			return err
+		}
+	}
+	return c.runner.Run()
 }
 
 func findCmdAndArgs(c *Cmd, args []string) (*Cmd, []string) {

@@ -2,15 +2,12 @@ package main
 
 import (
 	"cmdline"
+	"cmdline/args"
 	"flag"
 	"fmt"
-	"strings"
 )
 
 const cmdName = "phone"
-
-var commonNumberArg = cmdline.NewArg("number",
-	"(123-456-7890) the phone number to call")
 
 //// Call subcommand definitions ////
 const cmdCallName = "call"
@@ -21,22 +18,23 @@ var (
 		"(bool) whether the speaker phone should be used")
 )
 
-var cmdCallArgs = []*cmdline.Arg{commonNumberArg}
+var (
+	cmdCallArgs = args.NewArgSet()
+	callNumber  = cmdCallArgs.String("number",
+		"(123-456-7890) the phone number to call")
+)
 
 type cmdCallRunner struct {
 	calledHistory []string
 }
 
-func (c *cmdCallRunner) Run(args []string) error {
-	// No need to check length of args here: the arg definition provided
-	// guarantees it will at least have a length 1
+func (c *cmdCallRunner) Run() error {
 	var speakerMsg string
 	if *speaker {
 		speakerMsg = " with speaker phone"
 	}
-	number := args[0]
-	fmt.Printf("Dialing %s%s...\n", number, speakerMsg)
-	c.calledHistory = append(c.calledHistory, number)
+	fmt.Printf("Dialing %s%s...\n", *callNumber, speakerMsg)
+	c.calledHistory = append(c.calledHistory, *callNumber)
 	return nil
 }
 
@@ -49,19 +47,18 @@ var (
 		"(string) signature to use at the end of the message")
 )
 
-var cmdTextArgs = []*cmdline.Arg{
-	commonNumberArg,
-	cmdline.NewArg("message", "(string) the message to send"),
-}
+var (
+	cmdTextArgs = args.NewArgSet()
+	textNumber  = cmdTextArgs.String("number",
+		"(123-456-7890) the phone number to call")
+	message = cmdTextArgs.String("message", "(string) the message to send")
+)
 
 type cmdTextRunner struct{}
 
-func (c *cmdTextRunner) Run(args []string) error {
-	// No need to check length of args here: the arg definition provided
-	// guarantees it will at least have a length 2
-	number := args[0]
-	message := strings.Join(args[1:], " ") // Just in case they forgot to put second arg in quotes...
-	fmt.Printf("Texted %s this message: %s%s\n", number, message, *signature)
+func (c *cmdTextRunner) Run() error {
+	fmt.Printf("Texted %s this message: %s%s\n", *textNumber, *message,
+		*signature)
 	return nil
 }
 
